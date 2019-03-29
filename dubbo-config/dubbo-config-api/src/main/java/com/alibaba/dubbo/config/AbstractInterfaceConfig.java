@@ -214,11 +214,13 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
                             map.put("protocol", "dubbo");
                         }
                     }
-                    // 解析地址，创建 Dubbo URL 数组。（数组大小可以为一）
+                    // 解析得到 URL 列表，address 可能包含多个注册中心 ip，
+                    // 因此解析得到的是一个 URL 列表
                     List<URL> urls = UrlUtils.parseURLs(address, map);
                     // 循环 `url` ，设置 "registry" 和 "protocol" 属性。
                     for (URL url : urls) {
                         url = url.addParameter(Constants.REGISTRY_KEY, url.getProtocol());
+                        // 将 URL 协议头设置为 registry
                         url = url.setProtocol(Constants.REGISTRY_PROTOCOL);
                         // 添加到结果
                         //若是服务提供者，判断是否只订阅不注册。如果是，不添加结果到 registryList 中。对应 《Dubbo 用户指南 —— 只订阅》 文档
