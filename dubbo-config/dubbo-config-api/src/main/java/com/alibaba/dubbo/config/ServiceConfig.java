@@ -633,17 +633,20 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
                     .getExtension(url.getProtocol()).getConfigurator(url).configure(url);
         }
 
+        // 如果 scope = none，则什么都不做
         String scope = url.getParameter(Constants.SCOPE_KEY);
         // don't export when none is configured
         if (!Constants.SCOPE_NONE.toString().equalsIgnoreCase(scope)) {
 
             // export to local if the config is not remote (export to remote only when config is remote)
             //本地暴露服务
+            // scope != remote，导出到本地
             if (!Constants.SCOPE_REMOTE.toString().equalsIgnoreCase(scope)) {
                 exportLocal(url);
             }
             // export to remote if the config is not local (export to local only when config is local)
             //远程暴露
+            // scope != local，导出到远程
             if (!Constants.SCOPE_LOCAL.toString().equalsIgnoreCase(scope)) {
                 if (logger.isInfoEnabled()) {
                     logger.info("Export dubbo service " + interfaceClass.getName() + " to url " + url);
@@ -655,14 +658,17 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
                         // TODO 获得监控中心 URL
                         URL monitorUrl = loadMonitor(registryURL);
                         if (monitorUrl != null) {
+                            // 将监视器链接作为参数添加到 url 中
                             url = url.addParameterAndEncoded(Constants.MONITOR_KEY, monitorUrl.toFullString());
                         }
                         if (logger.isInfoEnabled()) {
                             logger.info("Register dubbo service " + interfaceClass.getName() + " url " + url + " to registry " + registryURL);
                         }
                         // 使用 ProxyFactory 创建 Invoker 对象
+                        // 为服务提供类(ref)生成 Invoker
                         Invoker<?> invoker = proxyFactory.getInvoker(ref, (Class) interfaceClass, registryURL.addParameterAndEncoded(Constants.EXPORT_KEY, url.toFullString()));
                         // 创建 DelegateProviderMetaDataInvoker 对象
+                        // DelegateProviderMetaDataInvoker 用于持有 Invoker 和 ServiceConfig
                         DelegateProviderMetaDataInvoker wrapperInvoker = new DelegateProviderMetaDataInvoker(invoker, this);
                         // 使用 Protocol 暴露 Invoker 对象
                         Exporter<?> exporter = protocol.export(wrapperInvoker);
@@ -670,7 +676,8 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
                         exporters.add(exporter);
                     }
                 // 用于被服务消费者直连服务提供者，
-                // 参见文档 http://dubbo.apache.org/books/dubbo-user-book/demos/explicit-target.html 。主要用于开发测试环境使用。
+                    // 不存在注册中心，仅导出服务
+                    // 参见文档 http://dubbo.apache.org/books/dubbo-user-book/demos/explicit-target.html 。主要用于开发测试环境使用。
                 } else {
                     // 使用 ProxyFactory 创建 Invoker 对象
                     Invoker<?> invoker = proxyFactory.getInvoker(ref, (Class) interfaceClass, url);
@@ -692,6 +699,7 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
      4:  * @param url 注册中心 URL
      5:  */
     private void exportLocal(URL url) {
+        // 如果 URL 的协议头等于 injvm，说明已经导出到本地了，无需再次导出
         if (!Constants.LOCAL_PROTOCOL.equalsIgnoreCase(url.getProtocol())) {
             // 创建本地 Dubbo URL,因为 url 在后面远程暴露服务会使用，所以要新创建。
             URL local = URL.valueOf(url.toFullString())
